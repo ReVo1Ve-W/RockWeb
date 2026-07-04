@@ -42,10 +42,9 @@ function toggle() {
         </div>
 
         <!--
-          版权合规的试听方案：只有 embedUrl 真的填了才渲染播放器，
-          否则显示一句提示文字，而不是嵌入一个指向空地址的 iframe（会报错或显示空白）
-          iframe 里嵌的是第三方平台（网易云音乐/QQ音乐/YouTube等）官方提供的播放器，
-          音频文件本身始终在对方服务器上播放，不涉及我们自己存储或分发音频
+          版权合规的试听方案：embedUrl（官方播放器）和 audioUrl（自行上传的音频）
+          是两条独立路径，只要填了就展示对应的播放器，两者可以同时存在；
+          都没填的话才显示"暂无试听链接"的提示，而不是渲染一个指向空地址的播放器
         -->
         <iframe
           v-if="track.embedUrl"
@@ -54,7 +53,8 @@ function toggle() {
           frameborder="0"
           allow="autoplay"
         ></iframe>
-        <p v-else class="no-preview">暂无试听链接</p>
+        <audio v-if="track.audioUrl" class="native-player" :src="track.audioUrl" controls></audio>
+        <p v-if="!track.embedUrl && !track.audioUrl" class="no-preview">暂无试听链接</p>
       </div>
     </div>
   </div>
@@ -154,6 +154,12 @@ function toggle() {
   width: 100%;
   height: 86px;
   border-radius: 8px;
+}
+
+.native-player {
+  width: 100%;
+  height: 36px;
+  margin-top: 8px;
 }
 
 .no-preview {

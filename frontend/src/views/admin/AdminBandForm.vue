@@ -5,6 +5,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getBandById, createBand, updateBand } from '../../api/bands.js'
+import ImageUploader from '../../components/ImageUploader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -139,12 +140,15 @@ async function handleSubmit() {
 
       <div class="row">
         <div class="field">
-          <label>头像图片链接</label>
-          <input v-model="form.avatar" type="text" placeholder="https://..." />
+          <!-- ImageUploader 用 v-model 双向绑定，选好文件上传成功后
+               会自动把返回的图片链接写回 form.avatar，效果跟手打链接一样，
+               只是多了"帮你上传"这一步 -->
+          <label>头像图片</label>
+          <ImageUploader v-model="form.avatar" />
         </div>
         <div class="field">
-          <label>首页轮播大图链接</label>
-          <input v-model="form.coverImage" type="text" placeholder="https://..." />
+          <label>首页轮播大图</label>
+          <ImageUploader v-model="form.coverImage" />
         </div>
       </div>
 

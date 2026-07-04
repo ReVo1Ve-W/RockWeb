@@ -31,6 +31,10 @@ const albumSchema = new mongoose.Schema(
         // 官方播放器的嵌入链接，前端直接用 iframe 渲染，不涉及版权风险
         embedPlatform: String,
         embedUrl: String,
+        // audioUrl：自行上传的音频文件链接（存在 Cloudinary），
+        // ⚠️ 仅限用户确认自己拥有权利的音频内容，跟上面的官方嵌入方案是两条独立路径，
+        // 前端会同时展示这两种试听方式（如果都填了）
+        audioUrl: String,
       },
     ],
   },

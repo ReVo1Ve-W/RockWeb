@@ -4,6 +4,8 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getAlbumById, createAlbum, updateAlbum } from '../../api/albums.js'
 import { getAllBands } from '../../api/bands.js'
+import ImageUploader from '../../components/ImageUploader.vue'
+import AudioUploader from '../../components/AudioUploader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,7 +53,7 @@ onMounted(async () => {
 })
 
 function addTrack() {
-  form.tracks.push({ title: '', duration: '', embedPlatform: '', embedUrl: '' })
+  form.tracks.push({ title: '', duration: '', embedPlatform: '', embedUrl: '', audioUrl: '' })
 }
 
 function removeTrack(index) {
@@ -109,8 +111,8 @@ async function handleSubmit() {
           <input v-model="form.releaseYear" type="number" />
         </div>
         <div class="field">
-          <label>封面图链接</label>
-          <input v-model="form.coverUrl" type="text" placeholder="https://..." />
+          <label>封面图</label>
+          <ImageUploader v-model="form.coverUrl" />
         </div>
       </div>
 
@@ -133,8 +135,11 @@ async function handleSubmit() {
           </div>
           <div class="row">
             <input v-model="t.embedPlatform" type="text" placeholder="播放平台，如 网易云音乐" />
-            <input v-model="t.embedUrl" type="text" placeholder="试听嵌入链接（可留空）" />
+            <input v-model="t.embedUrl" type="text" placeholder="官方播放器嵌入链接（可留空）" />
           </div>
+          <!-- 音频上传是"备选路径"，跟上面的官方嵌入方案二选一或都填都行，
+               组件内部会显示醒目的版权提示 -->
+          <AudioUploader v-model="t.audioUrl" />
         </div>
         <button type="button" class="add-btn" @click="addTrack">+ 添加曲目</button>
       </div>
