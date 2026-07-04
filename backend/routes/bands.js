@@ -3,6 +3,7 @@
 const express = require('express')
 const router = express.Router()
 const Band = require('../models/Band')
+const { requireAuth } = require('../middleware/auth')
 
 // GET /api/bands
 // 获取乐队列表。支持 ?featured=true 只查"首页轮播要展示的乐队"
@@ -35,7 +36,8 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/bands
 // 新增一个乐队。req.body 是前端发过来的 JSON 数据
-router.post('/', async (req, res) => {
+// requireAuth 作为第二个参数插在路径和处理函数之间：这类"写"操作必须先登录才能调用
+router.post('/', requireAuth, async (req, res) => {
   try {
     const band = await Band.create(req.body)
     res.status(201).json(band)
@@ -46,7 +48,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/bands/:id
 // 更新一个已存在的乐队信息
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const band = await Band.findByIdAndUpdate(req.params.id, req.body, {
       new: true, // 返回更新后的数据，而不是更新前的
@@ -63,7 +65,7 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/bands/:id
 // 删除一个乐队
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const band = await Band.findByIdAndDelete(req.params.id)
     if (!band) {

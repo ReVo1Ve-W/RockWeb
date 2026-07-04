@@ -12,3 +12,29 @@ export async function getAllAlbums() {
   const res = await api.get('/albums')
   return res.data
 }
+
+// 获取单个专辑详情
+export async function getAlbumById(id) {
+  const res = await api.get(`/albums/${id}`)
+  return res.data
+}
+
+// --- 以下三个函数需要登录后才能调用（后端已用 requireAuth 中间件保护） ---
+
+// 新增一个专辑
+export async function createAlbum(data) {
+  const res = await api.post('/albums', data)
+  return res.data
+}
+
+// 更新一个已存在的专辑
+export async function updateAlbum(id, data) {
+  const res = await api.put(`/albums/${id}`, data)
+  return res.data
+}
+
+// 删除一个专辑
+export async function deleteAlbum(id) {
+  const res = await api.delete(`/albums/${id}`)
+  return res.data
+}

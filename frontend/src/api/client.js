@@ -12,3 +12,30 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api',
 })
 
+// --- 请求拦截器：每次发请求前自动检查，如果本地存了登录凭证(token)，
+// 就自动加到请求头里，不用每个 API 函数都手写一遍 ---
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('admin_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// --- 响应拦截器：如果后端返回 401（token 无效或过期），
+// 自动清掉本地存的 token 并跳转回登录页，不用每个页面自己写这段判断逻辑 ---
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('admin_token')
+      // 避免在非管理页面（比如普通访客浏览网站时）也被误触发跳转，
+      // 只有当前正处于 /admin 路径下才跳转登录页
+      if (window.location.pathname.startsWith('/admin')) {
+        window.location.href = '/admin/login'
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+

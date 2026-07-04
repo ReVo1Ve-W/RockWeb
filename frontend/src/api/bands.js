@@ -20,3 +20,23 @@ export async function getBandById(id) {
   const res = await api.get(`/bands/${id}`)
   return res.data
 }
+
+// --- 以下三个函数需要登录后才能调用（后端已用 requireAuth 中间件保护） ---
+
+// 新增一个乐队
+export async function createBand(data) {
+  const res = await api.post('/bands', data)
+  return res.data
+}
+
+// 更新一个已存在的乐队
+export async function updateBand(id, data) {
+  const res = await api.put(`/bands/${id}`, data)
+  return res.data
+}
+
+// 删除一个乐队
+export async function deleteBand(id) {
+  const res = await api.delete(`/bands/${id}`)
+  return res.data
+}

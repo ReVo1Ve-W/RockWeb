@@ -2,6 +2,7 @@
 const express = require('express')
 const router = express.Router()
 const Album = require('../models/Album')
+const { requireAuth } = require('../middleware/auth')
 
 // GET /api/albums?band=xxxx
 // 获取专辑列表，可以用 ?band=乐队id 筛选出"某个乐队的所有专辑"
@@ -37,7 +38,7 @@ router.get('/:id', async (req, res) => {
 })
 
 // POST /api/albums
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   try {
     const album = await Album.create(req.body)
     res.status(201).json(album)
@@ -47,7 +48,7 @@ router.post('/', async (req, res) => {
 })
 
 // PUT /api/albums/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const album = await Album.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -63,7 +64,7 @@ router.put('/:id', async (req, res) => {
 })
 
 // DELETE /api/albums/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const album = await Album.findByIdAndDelete(req.params.id)
     if (!album) {
