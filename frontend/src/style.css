@@ -1,0 +1,29 @@
+/* 全局基础样式：只保留真正通用的重置和字体设置
+   （旧的 Vite 默认模板样式已清空，那些是导致页面两侧留白的根源：
+   之前的 #app { width: 1126px } 把整个网站强行框死在一个 1126px 的盒子里，
+   两侧露出的就是 <html> 默认的白色背景） */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* 页面背景统一定成深色，不再依赖系统的浅色/深色模式，
+     避免"用户系统是浅色模式时两侧变白"的问题 */
+  background: #0a0a0c;
+}
+
+body {
+  font-family: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  /* 不再限制宽度，让内容真正撑满整个视口（全屏沉浸式布局） */
+  width: 100%;
+  min-height: 100vh;
+}
