@@ -14,35 +14,82 @@ const albumId = route.params.id
 const isEditMode = computed(() => !!albumId)
 
 const form = reactive({
-  band: '', // 所属乐队的 _id
+  band: '',
   title: '',
   coverUrl: '',
   releaseYear: '',
   description: '',
-  tracks: [], // 每项是 { title, duration, embedPlatform, embedUrl }
+  // 每首曲目多了两个"仅用于表单交互"的临时字段：
+  // neteaseShareUrl（粘贴的分享链接）、neteaseSongId（识别/编辑出的歌曲ID）
+  // 这两个不会存进数据库，提交前会转换成 embedUrl / embedPlatform
+  tracks: [],
 })
 
-const bandOptions = ref([]) // 下拉框的候选乐队列表
+const bandOptions = ref([])
 const loading = ref(true)
 const submitting = ref(false)
 const errorMessage = ref('')
 
+// 网易云分享链接常见形如 https://music.163.com/song?id=411314659&uct2=xxx，
+// 也可能是 App 分享出来的 https://music.163.com/#/song?id=xxx；
+// 优先匹配 ?id= 或 &id= 这种查询参数写法，匹配不到再退而求其次，
+// 抓取链接末尾的一段连续数字（兼容 /song/12345 这种纯路径写法）
+function extractIdFromShareUrl(url) {
+  const text = url || ''
+  const queryMatch = text.match(/[?&]id=(\d+)/)
+  if (queryMatch) return queryMatch[1]
+  const pathMatch = text.match(/(\d{5,})/)
+  return pathMatch ? pathMatch[1] : ''
+}
+
+// 根据当前的 neteaseSongId 自动拼出网易云外链播放器地址，
+// height=86 会显示完整控制栏（含音量滑条），方便用户自己拖动调节音量
+function buildEmbedUrl(songId) {
+  return `https://music.163.com/outchain/player?type=2&id=${songId}&auto=0&height=86`
+}
+
+// 粘贴分享链接的输入框触发：解析出ID后同步更新 embedUrl/embedPlatform
+function handleShareUrlInput(track) {
+  const id = extractIdFromShareUrl(track.neteaseShareUrl)
+  if (id) {
+    track.neteaseSongId = id
+    syncEmbedFromId(track)
+  }
+}
+
+// 直接编辑ID输入框触发，或者提交前兜底调用一次，保证 embedUrl 始终和 ID 一致
+function syncEmbedFromId(track) {
+  if (track.neteaseSongId) {
+    track.embedPlatform = '网易云音乐'
+    track.embedUrl = buildEmbedUrl(track.neteaseSongId)
+  }
+}
+
+// 编辑已有曲目时，从已存的 embedUrl 里反向解析出 ID，让输入框里能看到当前值
+function parseIdFromExistingEmbedUrl(track) {
+  track.neteaseSongId = extractIdFromShareUrl(track.embedUrl) || ''
+}
+
 onMounted(async () => {
   try {
-    // 无论新增还是编辑，都需要先拉出"全部乐队"填充下拉框选项
     bandOptions.value = await getAllBands()
 
     if (isEditMode.value) {
       const data = await getAlbumById(albumId)
+      const tracks = (data.tracks || []).map((t) => ({
+        ...t,
+        neteaseShareUrl: '',
+        neteaseSongId: '',
+      }))
+      tracks.forEach(parseIdFromExistingEmbedUrl)
+
       Object.assign(form, {
-        // data.band 因为后端 populate 过，是 { _id, name } 对象；
-        // 表单的下拉框 <select> 需要的是纯 id 字符串，所以这里取 .的._id
         band: data.band?._id || data.band || '',
         title: data.title || '',
         coverUrl: data.coverUrl || '',
         releaseYear: data.releaseYear || '',
         description: data.description || '',
-        tracks: data.tracks || [],
+        tracks,
       })
     }
   } catch (err) {
@@ -53,7 +100,15 @@ onMounted(async () => {
 })
 
 function addTrack() {
-  form.tracks.push({ title: '', duration: '', embedPlatform: '', embedUrl: '', audioUrl: '' })
+  form.tracks.push({
+    title: '',
+    duration: '',
+    neteaseShareUrl: '',
+    neteaseSongId: '',
+    embedPlatform: '',
+    embedUrl: '',
+    audioUrl: '',
+  })
 }
 
 function removeTrack(index) {
@@ -64,9 +119,15 @@ async function handleSubmit() {
   errorMessage.value = ''
   submitting.value = true
   try {
+    // 提交前统一再同步一遍，防止用户手动改了ID输入框但没触发过 input 事件
+    form.tracks.forEach(syncEmbedFromId)
+
     const payload = {
       ...form,
       releaseYear: form.releaseYear ? Number(form.releaseYear) : undefined,
+      // 表单专用的临时字段（neteaseShareUrl / neteaseSongId）不需要、也不应该传给后端，
+      // 数据库的 Track schema 里没有这两个字段，只存 embedUrl / embedPlatform
+      tracks: form.tracks.map(({ neteaseShareUrl, neteaseSongId, ...rest }) => rest),
     }
 
     if (isEditMode.value) {
@@ -121,7 +182,7 @@ async function handleSubmit() {
         <textarea v-model="form.description" rows="3"></textarea>
       </div>
 
-      <!-- 曲目列表：每条曲目占一整块，方便填多个字段，包括试听嵌入链接 -->
+      <!-- 曲目列表：每条曲目占一整块 -->
       <div class="field">
         <label>曲目列表</label>
         <div v-for="(t, i) in form.tracks" :key="i" class="track-block">
@@ -133,12 +194,33 @@ async function handleSubmit() {
             <input v-model="t.title" type="text" placeholder="曲目名" />
             <input v-model="t.duration" type="text" placeholder="时长，如 3:45" />
           </div>
-          <div class="row">
-            <input v-model="t.embedPlatform" type="text" placeholder="播放平台，如 网易云音乐" />
-            <input v-model="t.embedUrl" type="text" placeholder="官方播放器嵌入链接（可留空）" />
+
+          <!--
+            智能网易云链接识别：
+            粘贴分享链接（比如从网易云 APP/网页复制的 https://music.163.com/song?id=xxx&uct2=... ）
+            会自动解析出数字ID填进右边的输入框，并自动拼出底层真正需要的 embedUrl，
+            不用再自己去拼那一长串播放器地址
+          -->
+          <div class="netease-row">
+            <input
+              v-model="t.neteaseShareUrl"
+              type="text"
+              placeholder="粘贴网易云歌曲分享链接，自动识别歌曲ID"
+              @input="handleShareUrlInput(t)"
+            />
           </div>
-          <!-- 音频上传是"备选路径"，跟上面的官方嵌入方案二选一或都填都行，
-               组件内部会显示醒目的版权提示 -->
+          <div class="netease-row">
+            <label class="inline-label">歌曲ID</label>
+            <input
+              v-model="t.neteaseSongId"
+              type="text"
+              placeholder="也可以直接在这里手动填写/修改ID"
+              @input="syncEmbedFromId(t)"
+            />
+          </div>
+          <p v-if="t.embedUrl" class="embed-preview">生成的播放器链接：{{ t.embedUrl }}</p>
+
+          <!-- 音频上传是"备选路径"，跟上面的官方嵌入方案二选一或都填都行 -->
           <AudioUploader v-model="t.audioUrl" />
         </div>
         <button type="button" class="add-btn" @click="addTrack">+ 添加曲目</button>
@@ -239,6 +321,37 @@ async function handleSubmit() {
   align-items: center;
   font-size: 13px;
   color: #999;
+}
+
+.netease-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.netease-row input {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #f2f2f2;
+  font-size: 13px;
+}
+
+.inline-label {
+  flex-shrink: 0;
+  width: 56px;
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+}
+
+.embed-preview {
+  margin: 0;
+  font-size: 12px;
+  color: #666;
+  word-break: break-all;
 }
 
 .add-btn,

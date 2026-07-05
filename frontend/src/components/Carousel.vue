@@ -243,10 +243,13 @@ function selectBand(band) {
   height: 48px;
   border-radius: 50%;
   font-size: 26px;
-  line-height: 1;
   cursor: pointer;
   z-index: 2;
   transition: background 0.2s, transform 0.2s;
+  /* flexbox 居中替代 line-height: 1，彻底解决 ‹› 这类字符的基线偏移导致的视觉不居中问题 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .arrow:hover {

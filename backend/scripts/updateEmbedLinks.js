@@ -9,10 +9,12 @@ const mongoose = require('mongoose')
 const Album = require('../models/Album')
 
 // 网易云音乐的外链播放器地址格式是固定的：
-// https://music.163.com/outchain/player?type=2&id=歌曲ID&auto=0&height=66
+// height=86 会显示完整控制栏（含音量滑条），比迷你版(height=66)体验好，
+// 用户可以直接在播放器里拖动音量条调节音量
+// https://music.163.com/outchain/player?type=2&id=歌曲ID&auto=0&height=86
 // 这是网易云官方提供的"分享-生成外链播放器"功能生成的标准格式，属于官方支持的合法嵌入方式
 function buildNeteaseEmbedUrl(songId) {
-  return `https://music.163.com/outchain/player?type=2&id=${songId}&auto=0&height=66`
+  return `https://music.163.com/outchain/player?type=2&id=${songId}&auto=0&height=86`
 }
 
 // 曲目名 -> 网易云歌曲ID 的对照表（用户手动在网易云音乐网页上查证确认的真实ID）

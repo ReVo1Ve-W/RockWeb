@@ -152,7 +152,7 @@ function toggle() {
 
 .player {
   width: 100%;
-  height: 86px;
+  height: 90px;
   border-radius: 8px;
 }
 
@@ -194,7 +194,7 @@ function toggle() {
     font-size: 14px;
   }
   .player {
-    height: 80px;
+    height: 84px;
   }
 }
 </style>
