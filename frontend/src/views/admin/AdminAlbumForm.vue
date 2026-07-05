@@ -14,67 +14,35 @@ const albumId = route.params.id
 const isEditMode = computed(() => !!albumId)
 
 const form = reactive({
-  band: '',
+  band: '', // 所属乐队的 _id
   title: '',
   coverUrl: '',
   releaseYear: '',
   description: '',
-  tracks: [], // 每项是 { title, duration, neteaseSongId, neteaseShareUrl, embedPlatform, embedUrl, audioUrl }
+  tracks: [], // 每项是 { title, duration, embedPlatform, embedUrl }
 })
 
-const bandOptions = ref([])
+const bandOptions = ref([]) // 下拉框的候选乐队列表
 const loading = ref(true)
 const submitting = ref(false)
 const errorMessage = ref('')
 
-// 网易云分享链接格式：https://music.163.com/song?id=411314659&uct2=...
-// 正则把 id= 后面的数字提取出来赋值给 neteaseSongId，再自动拼出 embedUrl 和填入 Platform
-function extractNeteaseId(track) {
-  const url = track.neteaseShareUrl || ''
-  const match = url.match(/[?&]id=(\d+)/)
-  if (match) {
-    track.neteaseSongId = match[1]
-  }
-  syncFromId(track)
-}
-
-// 手动改动歌曲ID输入框时，自动同步生成 embedUrl 和 embedPlatform
-function syncFromId(track) {
-  const id = track.neteaseSongId || ''
-  if (id) {
-    track.embedPlatform = '网易云音乐'
-    track.embedUrl = `https://music.163.com/outchain/player?type=2&id=${id}&auto=0&height=86`
-  }
-}
-
-// 把已有 embedUrl 里的 ID 反向解析到 neteaseSongId（编辑模式加载时用）
-function parseExistingEmbedUrl(track) {
-  if (!track.embedUrl) return
-  const match = track.embedUrl.match(/[?&]id=(\d+)/)
-  if (match) {
-    track.neteaseSongId = match[1]
-  }
-}
-
 onMounted(async () => {
   try {
+    // 无论新增还是编辑，都需要先拉出"全部乐队"填充下拉框选项
     bandOptions.value = await getAllBands()
 
     if (isEditMode.value) {
       const data = await getAlbumById(albumId)
-      const tracks = (data.tracks || []).map(t => ({
-        ...t,
-        neteaseSongId: '',
-        neteaseShareUrl: '',
-      }))
-      tracks.forEach(parseExistingEmbedUrl)
       Object.assign(form, {
+        // data.band 因为后端 populate 过，是 { _id, name } 对象；
+        // 表单的下拉框 <select> 需要的是纯 id 字符串，所以这里取 .的._id
         band: data.band?._id || data.band || '',
         title: data.title || '',
         coverUrl: data.coverUrl || '',
         releaseYear: data.releaseYear || '',
         description: data.description || '',
-        tracks,
+        tracks: data.tracks || [],
       })
     }
   } catch (err) {
@@ -85,12 +53,7 @@ onMounted(async () => {
 })
 
 function addTrack() {
-  form.tracks.push({
-    title: '', duration: '',
-    neteaseSongId: '', neteaseShareUrl: '',
-    embedPlatform: '', embedUrl: '',
-    audioUrl: '',
-  })
+  form.tracks.push({ title: '', duration: '', embedPlatform: '', embedUrl: '', audioUrl: '' })
 }
 
 function removeTrack(index) {
@@ -101,18 +64,10 @@ async function handleSubmit() {
   errorMessage.value = ''
   submitting.value = true
   try {
-    // 提交前再跑一次同步，防止用户手动改了 ID 但没有触发输入事件
-    form.tracks.forEach(syncFromId)
-
     const payload = {
       ...form,
       releaseYear: form.releaseYear ? Number(form.releaseYear) : undefined,
     }
-    // 提交时把仅用于表单的临时字段删掉，不传给后端
-    payload.tracks = payload.tracks.map(t => {
-      const { neteaseSongId, neteaseShareUrl, ...rest } = t
-      return rest
-    })
 
     if (isEditMode.value) {
       await updateAlbum(albumId, payload)
@@ -166,6 +121,7 @@ async function handleSubmit() {
         <textarea v-model="form.description" rows="3"></textarea>
       </div>
 
+      <!-- 曲目列表：每条曲目占一整块，方便填多个字段，包括试听嵌入链接 -->
       <div class="field">
         <label>曲目列表</label>
         <div v-for="(t, i) in form.tracks" :key="i" class="track-block">
@@ -177,26 +133,12 @@ async function handleSubmit() {
             <input v-model="t.title" type="text" placeholder="曲目名" />
             <input v-model="t.duration" type="text" placeholder="时长，如 3:45" />
           </div>
-
-          <!-- 网易云音乐智能链接输入区 -->
-          <div class="netease-row">
-            <input
-              v-model="t.neteaseShareUrl"
-              type="text"
-              placeholder="粘贴网易云歌曲分享链接，自动识别ID"
-              @input="extractNeteaseId(t)"
-            />
-            <span class="arrow-icon">→</span>
-            <input
-              v-model="t.neteaseSongId"
-              type="text"
-              placeholder="歌曲ID"
-              class="id-input"
-              @input="syncFromId(t)"
-            />
+          <div class="row">
+            <input v-model="t.embedPlatform" type="text" placeholder="播放平台，如 网易云音乐" />
+            <input v-model="t.embedUrl" type="text" placeholder="官方播放器嵌入链接（可留空）" />
           </div>
-          <p v-if="t.embedUrl" class="embed-preview">{{ t.embedUrl }}</p>
-
+          <!-- 音频上传是"备选路径"，跟上面的官方嵌入方案二选一或都填都行，
+               组件内部会显示醒目的版权提示 -->
           <AudioUploader v-model="t.audioUrl" />
         </div>
         <button type="button" class="add-btn" @click="addTrack">+ 添加曲目</button>
@@ -224,7 +166,9 @@ async function handleSubmit() {
   margin: 0 0 24px;
 }
 
-.status { color: #999; }
+.status {
+  color: #999;
+}
 
 .error {
   color: #ff6b6b;
@@ -243,7 +187,9 @@ async function handleSubmit() {
   gap: 16px;
 }
 
-.row input { flex: 1; }
+.row input {
+  flex: 1;
+}
 
 .field label {
   display: block;
@@ -273,7 +219,9 @@ async function handleSubmit() {
   border-color: #ff3b3b;
 }
 
-.field select option { background: #1a1a1c; }
+.field select option {
+  background: #1a1a1c;
+}
 
 .track-block {
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -293,40 +241,6 @@ async function handleSubmit() {
   color: #999;
 }
 
-/* 网易云智能入口区：分享链接 → 解析 → 歌曲ID */
-.netease-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.netease-row input {
-  flex: 1;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  color: #f2f2f2;
-  font-size: 13px;
-}
-
-.netease-row .id-input {
-  flex: 0 0 120px;
-}
-
-.arrow-icon {
-  color: #ff5b5b;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.embed-preview {
-  margin: 0;
-  font-size: 12px;
-  color: #666;
-  word-break: break-all;
-}
-
 .add-btn,
 .remove-btn {
   padding: 6px 14px;
@@ -343,7 +257,9 @@ async function handleSubmit() {
   align-self: flex-start;
 }
 
-.add-btn:hover { background: rgba(255, 255, 255, 0.06); }
+.add-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
 
 .remove-btn:hover {
   background: rgba(255, 59, 59, 0.15);
@@ -371,7 +287,9 @@ async function handleSubmit() {
   color: #fff;
 }
 
-.form-actions .primary:hover { background: #ff5b5b; }
+.form-actions .primary:hover {
+  background: #ff5b5b;
+}
 
 .form-actions .primary:disabled {
   opacity: 0.6;
@@ -384,5 +302,7 @@ async function handleSubmit() {
   color: #ccc;
 }
 
-.form-actions .secondary:hover { background: rgba(255, 255, 255, 0.06); }
+.form-actions .secondary:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
 </style>
