@@ -152,7 +152,10 @@ function toggle() {
 
 .player {
   width: 100%;
-  height: 90px;
+  /* 网易云外链播放器官方对照关系：容器高度 ≈ URL里的 height 参数 + 20px，
+     现在 URL 用的是 height=86（完整控制栏，含音量滑条），
+     容器给太小会把底部的播放控制按钮/音量条硬生生裁掉 */
+  height: 110px;
   border-radius: 8px;
 }
 
@@ -194,7 +197,7 @@ function toggle() {
     font-size: 14px;
   }
   .player {
-    height: 84px;
+    height: 110px;
   }
 }
 </style>
