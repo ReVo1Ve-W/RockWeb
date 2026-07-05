@@ -43,9 +43,10 @@ function extractIdFromShareUrl(url) {
 }
 
 // 根据当前的 neteaseSongId 自动拼出网易云外链播放器地址，
-// height=86 会显示完整控制栏（含音量滑条），方便用户自己拖动调节音量
+// height=66 是官方默认的迷你播放器样式（该外链播放器本身不提供音量控件，
+// 调大 height 只会让内容被容器裁切，不会凭空多出音量滑条）
 function buildEmbedUrl(songId) {
-  return `https://music.163.com/outchain/player?type=2&id=${songId}&auto=0&height=86`
+  return `https://music.163.com/outchain/player?type=2&id=${songId}&auto=0&height=66`
 }
 
 // 粘贴分享链接的输入框触发：解析出ID后同步更新 embedUrl/embedPlatform

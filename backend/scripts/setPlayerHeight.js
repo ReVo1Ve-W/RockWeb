@@ -1,9 +1,9 @@
 // scripts/setPlayerHeight.js：把数据库里所有网易云音乐 embedUrl 的 height 参数
-// 统一设置成目标值。用法：node scripts/setPlayerHeight.js 86
+// 统一设置成目标值。用法：node scripts/setPlayerHeight.js 66
 //
-// height 参数控制网易云外链播放器显示哪种界面：
-//   height=66  → 迷你播放器，只有封面+播放按钮，没有音量/进度条
-//   height=86  → 完整控制栏，含音量滑条和进度条（用户可以自己拖动音量条来调节）
+// 实测网易云外链播放器本身不提供音量滑条这个控件（无论 height 调多大都不会凭空出现），
+// 调大只会让容器需要更高才能完整展示内容，容器不够高会把内容硬生生裁掉。
+// 目前项目统一固定使用官方默认值 height=66（迷你播放器：封面+进度条+播放控制）。
 require('dotenv').config()
 const dns = require('dns')
 dns.setServers(['8.8.8.8', '1.1.1.1'])
