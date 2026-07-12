@@ -78,7 +78,7 @@ onMounted(async () => {
           <h3>代表专辑</h3>
           <div v-if="albums.length === 0" class="empty">暂无收录的专辑信息</div>
           <!-- AlbumCard 是我们接下来要写的子组件，专门负责展示"一张专辑 + 可展开的曲目列表" -->
-          <AlbumCard v-for="album in albums" :key="album._id" :album="album" />
+          <AlbumCard v-for="album in albums" :key="album._id" :album="album" :band="band" />
         </section>
       </div>
     </template>

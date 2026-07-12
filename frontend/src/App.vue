@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import FloatingMusicPlayer from './components/FloatingMusicPlayer.vue'
 
 const siteName = ref('Rock Web')
 </script>
@@ -22,6 +23,8 @@ const siteName = ref('Rock Web')
     <main>
       <router-view />
     </main>
+
+    <FloatingMusicPlayer />
   </div>
 </template>
 

@@ -5,6 +5,7 @@ import Carousel from '../components/Carousel.vue'
 import HomeReleaseCard from '../components/HomeReleaseCard.vue'
 import { getFeaturedBands } from '../api/bands.js'
 import { getAllAlbums } from '../api/albums.js'
+import { useMusicPlayer } from '../composables/useMusicPlayer.js'
 
 const router = useRouter()
 const bands = ref([])
@@ -13,7 +14,7 @@ const heroLoading = ref(true)
 const releasesLoading = ref(true)
 const heroError = ref('')
 const releasesError = ref('')
-const activeTrackKey = ref('')
+const { currentTrackKey, isPlaying, getTrackKey, playTrack } = useMusicPlayer()
 
 const latestReleases = computed(() =>
   [...albums.value]
@@ -85,13 +86,24 @@ function goToAlbumBand(album) {
   if (album?.band?._id) router.push({ name: 'band-detail', params: { id: album.band._id } })
 }
 
-function trackKey(track) {
-  return `${track.albumId || 'album'}-${track.title || 'track'}`
+function trackContext(track) {
+  return {
+    albumId: track.albumId,
+    albumTitle: track.albumTitle,
+    bandName: track.bandName,
+  }
 }
 
-function toggleTrack(track) {
-  const key = trackKey(track)
-  activeTrackKey.value = activeTrackKey.value === key ? '' : key
+function trackKey(track) {
+  return getTrackKey(track, trackContext(track))
+}
+
+function isActiveTrack(track) {
+  return currentTrackKey.value === trackKey(track)
+}
+
+function selectTrack(track) {
+  playTrack(track, trackContext(track))
 }
 
 onMounted(() => {
@@ -161,18 +173,18 @@ onMounted(() => {
       <div class="listening-copy">
         <p class="section-kicker">LISTEN TONIGHT</p>
         <h2 id="listening-title">今夜试听</h2>
-        <p>从已收录的官方播放器中，挑一首歌，把页面留在声音里。</p>
+        <p>挑一首歌放进全局播放器，边听边继续浏览。</p>
         <router-link class="text-link" :to="{ name: 'band-list' }">探索全部乐队 →</router-link>
       </div>
 
       <div v-if="playableTracks.length" class="track-list">
-        <article v-for="(track, index) in playableTracks" :key="trackKey(track)" class="track-item">
-          <button
-            class="track-summary"
-            type="button"
-            :aria-expanded="activeTrackKey === trackKey(track)"
-            @click="toggleTrack(track)"
-          >
+        <article
+          v-for="(track, index) in playableTracks"
+          :key="trackKey(track)"
+          class="track-item"
+          :class="{ active: isActiveTrack(track) }"
+        >
+          <button class="track-summary" type="button" @click="selectTrack(track)">
             <span class="track-index">{{ String(index + 1).padStart(2, '0') }}</span>
             <span class="track-main">
               <strong>{{ track.title || '未命名曲目' }}</strong>
@@ -180,20 +192,9 @@ onMounted(() => {
             </span>
             <span v-if="track.duration" class="duration">{{ track.duration }}</span>
             <span class="play-icon" aria-hidden="true">
-              {{ activeTrackKey === trackKey(track) ? '−' : '▶' }}
+              {{ isActiveTrack(track) && track.audioUrl && isPlaying ? '❚❚' : '▶' }}
             </span>
           </button>
-
-          <div v-if="activeTrackKey === trackKey(track)" class="player-panel">
-            <iframe
-              v-if="track.embedUrl"
-              :src="track.embedUrl"
-              :title="`${track.title || '曲目'}官方播放器`"
-              frameborder="0"
-              allow="autoplay; encrypted-media"
-            ></iframe>
-            <audio v-else-if="track.audioUrl" :src="track.audioUrl" controls preload="none"></audio>
-          </div>
         </article>
       </div>
       <div v-else class="state-card listening-empty">
@@ -387,6 +388,10 @@ onMounted(() => {
   border-bottom: 1px solid var(--color-border);
 }
 
+.track-item.active {
+  background: linear-gradient(90deg, rgba(255, 59, 59, 0.08), transparent);
+}
+
 .track-summary {
   display: grid;
   width: 100%;
@@ -444,22 +449,6 @@ onMounted(() => {
   border-radius: 50%;
   color: var(--color-accent-light);
   font-size: 9px;
-}
-
-.player-panel {
-  padding: 0 0 20px 51px;
-}
-
-.player-panel iframe,
-.player-panel audio {
-  display: block;
-  width: 100%;
-  border-radius: 8px;
-}
-
-.player-panel iframe {
-  height: 86px;
-  background: #111;
 }
 
 .state-card {
@@ -644,9 +633,6 @@ onMounted(() => {
     display: none;
   }
 
-  .player-panel {
-    padding-left: 38px;
-  }
 
   .explore-section {
     margin-top: 78px;

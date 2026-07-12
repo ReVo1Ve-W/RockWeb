@@ -1,19 +1,40 @@
 <script setup>
 // AlbumCard：展示一张专辑的封面/信息，点击可以展开/收起曲目列表
 import { ref } from 'vue'
+import { useMusicPlayer } from '../composables/useMusicPlayer.js'
 
 const props = defineProps({
   album: {
     type: Object,
     required: true,
   },
+  band: {
+    type: Object,
+    default: null,
+  },
 })
 
-// expanded 控制这张专辑的曲目列表是"展开"还是"收起"，默认收起，减少页面初始信息量
 const expanded = ref(false)
+const { currentTrackKey, isPlaying, getTrackKey, playTrack } = useMusicPlayer()
 
 function toggle() {
   expanded.value = !expanded.value
+}
+
+function trackContext() {
+  return {
+    albumId: props.album._id,
+    albumTitle: props.album.title || '未命名专辑',
+    bandName: props.band?.name || props.album.band?.name || '未知乐队',
+  }
+}
+
+function isActiveTrack(track) {
+  return currentTrackKey.value === getTrackKey(track, trackContext())
+}
+
+function selectTrack(track) {
+  playTrack(track, trackContext())
 }
 </script>
 
@@ -26,35 +47,39 @@ function toggle() {
         <p class="year" v-if="album.releaseYear">{{ album.releaseYear }} 年发行</p>
         <p class="desc">{{ album.description }}</p>
       </div>
-      <!-- :class 根据 expanded 状态旋转箭头图标，视觉上提示"展开/收起" -->
       <span class="arrow" :class="{ open: expanded }">⌄</span>
     </div>
 
-    <!-- v-if 而不是 v-show：曲目列表收起时直接不渲染，省去不必要的 DOM 节点 -->
     <div v-if="expanded" class="tracklist">
       <div v-if="!album.tracks || album.tracks.length === 0" class="empty">
         暂无收录的曲目信息
       </div>
-      <div v-for="track in album.tracks" :key="track.title" class="track">
+      <div
+        v-for="track in album.tracks"
+        :key="track._id || track.title"
+        class="track"
+        :class="{ active: isActiveTrack(track) }"
+      >
         <div class="track-row">
-          <span class="track-title">{{ track.title }}</span>
+          <div>
+            <span class="track-title">{{ track.title }}</span>
+            <span v-if="isActiveTrack(track)" class="now-playing">
+              {{ track.audioUrl && isPlaying ? '正在播放' : '当前曲目' }}
+            </span>
+          </div>
           <span class="track-duration">{{ track.duration }}</span>
         </div>
 
-        <!--
-          版权合规的试听方案：embedUrl（官方播放器）和 audioUrl（自行上传的音频）
-          是两条独立路径，只要填了就展示对应的播放器，两者可以同时存在；
-          都没填的话才显示"暂无试听链接"的提示，而不是渲染一个指向空地址的播放器
-        -->
-        <iframe
-          v-if="track.embedUrl"
-          class="player"
-          :src="track.embedUrl"
-          frameborder="0"
-          allow="autoplay"
-        ></iframe>
-        <audio v-if="track.audioUrl" class="native-player" :src="track.audioUrl" controls></audio>
-        <p v-if="!track.embedUrl && !track.audioUrl" class="no-preview">暂无试听链接</p>
+        <button
+          v-if="track.audioUrl || track.embedUrl"
+          class="track-play-button"
+          type="button"
+          @click="selectTrack(track)"
+        >
+          <span aria-hidden="true">{{ isActiveTrack(track) && track.audioUrl && isPlaying ? '❚❚' : '▶' }}</span>
+          {{ isActiveTrack(track) && track.audioUrl && isPlaying ? '暂停' : '在悬浮播放器中播放' }}
+        </button>
+        <p v-else class="no-preview">暂无试听链接</p>
       </div>
     </div>
   </div>
@@ -62,11 +87,11 @@ function toggle() {
 
 <style scoped>
 .album-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
   margin-bottom: 16px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .album-header {
@@ -80,14 +105,14 @@ function toggle() {
 .cover {
   width: 64px;
   height: 64px;
+  flex-shrink: 0;
   border-radius: 8px;
   object-fit: cover;
-  flex-shrink: 0;
 }
 
 .info {
-  flex: 1;
   min-width: 0;
+  flex: 1;
 }
 
 .info h4 {
@@ -97,24 +122,24 @@ function toggle() {
 
 .year {
   margin: 0 0 4px;
-  font-size: 13px;
   color: #ff5b5b;
+  font-size: 13px;
 }
 
 .desc {
   margin: 0;
-  font-size: 14px;
-  color: #999;
   overflow: hidden;
+  color: #999;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .arrow {
-  font-size: 20px;
-  color: #999;
-  transition: transform 0.2s;
   flex-shrink: 0;
+  color: #999;
+  font-size: 20px;
+  transition: transform 0.2s;
 }
 
 .arrow.open {
@@ -122,13 +147,17 @@ function toggle() {
 }
 
 .tracklist {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 8px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .track {
   padding: 12px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.track.active {
+  color: #fff;
 }
 
 .track:last-child {
@@ -138,6 +167,7 @@ function toggle() {
 .track-row {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
@@ -145,56 +175,72 @@ function toggle() {
   font-size: 15px;
 }
 
+.now-playing {
+  margin-left: 9px;
+  color: var(--color-accent-light);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .track-duration {
-  font-size: 13px;
   color: #777;
+  font-size: 13px;
 }
 
-.player {
-  width: 100%;
-  height: 86px;
-  border-radius: 8px;
+.track-play-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 91, 91, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 59, 59, 0.09);
+  color: #f5e9eb;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 
-.native-player {
-  width: 100%;
-  height: 36px;
-  margin-top: 8px;
+.track-play-button:hover {
+  border-color: rgba(255, 91, 91, 0.6);
+  background: rgba(255, 59, 59, 0.16);
+}
+
+.no-preview,
+.empty {
+  color: #666;
+  font-size: 13px;
 }
 
 .no-preview {
   margin: 0;
-  font-size: 13px;
-  color: #666;
 }
 
 .empty {
-  color: #666;
-  font-size: 13px;
   padding: 8px 0;
 }
 
 @media (max-width: 480px) {
   .album-header {
-    padding: 12px;
     gap: 12px;
+    padding: 12px;
   }
+
   .cover {
     width: 52px;
     height: 52px;
   }
+
   .info h4 {
     font-size: 15px;
   }
+
   .desc {
-    /* 手机上宽度更紧张，长描述容易把标题挤没，缩短显示长度 */
     font-size: 13px;
   }
+
   .track-title {
     font-size: 14px;
-  }
-  .player {
-    height: 80px;
   }
 }
 </style>
