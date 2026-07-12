@@ -1,6 +1,6 @@
 <script setup>
-// defineProps 声明"这个组件需要从外部接收哪些数据"
-// 这里约定：父组件必须传一个叫 bands 的数组进来
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+
 const props = defineProps({
   bands: {
     type: Array,
@@ -8,120 +8,201 @@ const props = defineProps({
   },
 })
 
-// defineEmits 声明"这个组件会向外触发哪些事件"
-// select 事件用于告诉父组件"用户点击了某张幻灯片，想看这个乐队的详情"，
-// 具体点击后要跳转到哪个页面，由父组件决定，Carousel 自己不关心
 const emit = defineEmits(['select'])
 
-import { ref, onUnmounted } from 'vue'
-
-// currentIndex 记录"当前展示的是第几张图"，是响应式数据
-const currentIndex = ref(0)
-
 const AUTOPLAY_MS = 5000
+const currentIndex = ref(0)
+const isHovered = ref(false)
+const isFocusWithin = ref(false)
+const isDocumentHidden = ref(false)
+const prefersReducedMotion = ref(false)
+const brokenImages = ref(new Set())
+let timer = null
+let motionQuery = null
 
-// 切到下一张：如果已经是最后一张，就回到第一张（% 是取余数，实现"循环"效果）
+const safeBands = computed(() => (Array.isArray(props.bands) ? props.bands : []))
+const canAutoplay = computed(
+  () =>
+    safeBands.value.length > 1 &&
+    !isHovered.value &&
+    !isFocusWithin.value &&
+    !isDocumentHidden.value &&
+    !prefersReducedMotion.value
+)
+
+function clearTimer() {
+  if (timer) {
+    window.clearInterval(timer)
+    timer = null
+  }
+}
+
+function startTimer() {
+  clearTimer()
+  if (canAutoplay.value) {
+    timer = window.setInterval(() => move(1, false), AUTOPLAY_MS)
+  }
+}
+
+function move(direction, restart = true) {
+  const total = safeBands.value.length
+  if (total < 2) return
+  currentIndex.value = (currentIndex.value + direction + total) % total
+  if (restart) startTimer()
+}
+
 function next() {
-  currentIndex.value = (currentIndex.value + 1) % props.bands.length
-  restartTimer()
+  move(1)
 }
 
-// 切到上一张：如果已经是第一张，就跳到最后一张
 function prev() {
-  currentIndex.value =
-    (currentIndex.value - 1 + props.bands.length) % props.bands.length
-  restartTimer()
+  move(-1)
 }
 
-// 点击底部的小圆点，直接跳到对应的第几张
 function goTo(index) {
+  if (index < 0 || index >= safeBands.value.length) return
   currentIndex.value = index
-  restartTimer()
+  startTimer()
 }
 
-// 自动播放：每隔 AUTOPLAY_MS 自动切到下一张
-let timer = setInterval(next, AUTOPLAY_MS)
-
-// 手动点击箭头/圆点后，重新计时，避免"刚点完又立刻自动跳一次"的割裂感
-function restartTimer() {
-  clearInterval(timer)
-  timer = setInterval(next, AUTOPLAY_MS)
-}
-
-// 组件销毁时清掉定时器，避免内存泄漏（这是个好习惯，先记住即可）
-onUnmounted(() => clearInterval(timer))
-
-// 点击幻灯片内容区域，触发 select 事件，把当前这个乐队的数据传出去
 function selectBand(band) {
-  emit('select', band)
+  if (band?._id) emit('select', band)
 }
+
+function markImageBroken(index) {
+  brokenImages.value = new Set([...brokenImages.value, index])
+}
+
+function onVisibilityChange() {
+  isDocumentHidden.value = document.hidden
+}
+
+function onMotionChange(event) {
+  prefersReducedMotion.value = event.matches
+}
+
+function handleFocusOut(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    isFocusWithin.value = false
+  }
+}
+
+watch(
+  () => safeBands.value.length,
+  (length) => {
+    if (!length) currentIndex.value = 0
+    else if (currentIndex.value >= length) currentIndex.value = length - 1
+    startTimer()
+  },
+  { immediate: true }
+)
+
+watch(canAutoplay, startTimer)
+
+onMounted(() => {
+  isDocumentHidden.value = document.hidden
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  prefersReducedMotion.value = motionQuery.matches
+  motionQuery.addEventListener?.('change', onMotionChange)
+  startTimer()
+})
+
+onUnmounted(() => {
+  clearTimer()
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  motionQuery?.removeEventListener?.('change', onMotionChange)
+})
 </script>
 
 <template>
-  <div class="carousel">
-    <!--
-      v-for 是"循环渲染"指令：遍历 bands 数组，每一项生成一张幻灯片
-      :key 是给每个元素一个唯一标识，帮助 Vue 高效地更新页面（Vue 内部优化用，必须写）
-      :class 根据 index 是否等于 currentIndex，动态决定要不要加 "active" 这个 CSS 类
-    -->
-    <div
-      v-for="(band, index) in bands"
-      :key="band._id"
+  <section
+    class="carousel"
+    aria-label="精选乐队"
+    aria-roledescription="轮播图"
+    tabindex="-1"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
+    @focusin="isFocusWithin = true"
+    @focusout="handleFocusOut"
+  >
+    <article
+      v-for="(band, index) in safeBands"
+      :key="band._id || index"
       class="slide"
       :class="{ active: index === currentIndex }"
+      :aria-hidden="index !== currentIndex"
+      aria-roledescription="幻灯片"
+      :aria-label="`${index + 1} / ${safeBands.length}：${band.name || '未命名乐队'}`"
     >
-      <div
-        class="bg"
-        :class="{ active: index === currentIndex }"
-        :style="{ backgroundImage: `url(${band.coverImage})` }"
-      ></div>
+      <div class="visual" :class="{ fallback: !band.coverImage || brokenImages.has(index) }">
+        <img
+          v-if="band.coverImage && !brokenImages.has(index)"
+          class="bg"
+          :class="{ active: index === currentIndex }"
+          :src="band.coverImage"
+          :alt="`${band.name || '乐队'}封面`"
+          :loading="index === 0 ? 'eager' : 'lazy'"
+          :fetchpriority="index === 0 ? 'high' : 'auto'"
+          @error="markImageBroken(index)"
+        />
+      </div>
       <div class="scrim"></div>
 
       <div class="content">
-        <span class="index">0{{ index + 1 }} / 0{{ bands.length }}</span>
-        <h2>{{ band.name }}</h2>
+        <span class="index">
+          {{ String(index + 1).padStart(2, '0') }} / {{ String(safeBands.length).padStart(2, '0') }}
+        </span>
+        <p class="eyebrow">FEATURED ARTIST</p>
+        <h2>{{ band.name || '未命名乐队' }}</h2>
         <div class="meta">
-          <!-- genre 在数据库里存的是数组（一个乐队可以有多个风格标签），
-               用 v-for 把数组里每个标签渲染成一个独立的 chip -->
-          <span class="chip" v-for="g in band.genre" :key="g">{{ g }}</span>
-          <span class="country">{{ band.country }}</span>
+          <span v-for="genre in (Array.isArray(band.genre) ? band.genre : [])" :key="genre" class="chip">
+            {{ genre }}
+          </span>
+          <span v-if="band.country" class="country">{{ band.country }}</span>
         </div>
-        <!-- @click 触发 selectBand，点击"查看详情"就会向父组件发出 select 事件 -->
-        <button class="detail-btn" @click="selectBand(band)">查看详情 →</button>
+        <button v-if="band._id" class="detail-btn" @click="selectBand(band)">
+          阅读乐队故事 <span aria-hidden="true">↗</span>
+        </button>
       </div>
-    </div>
+    </article>
 
-    <!-- @click 是事件绑定：点击按钮时调用对应的函数 -->
-    <button class="arrow left" @click="prev" aria-label="上一张">‹</button>
-    <button class="arrow right" @click="next" aria-label="下一张">›</button>
+    <template v-if="safeBands.length > 1">
+      <button class="arrow left" type="button" aria-label="上一支乐队" @click="prev">‹</button>
+      <button class="arrow right" type="button" aria-label="下一支乐队" @click="next">›</button>
 
-    <div class="dots">
-      <button
-        v-for="(band, index) in bands"
-        :key="band._id"
-        class="dot"
-        :class="{ active: index === currentIndex }"
-        :aria-label="`跳转到 ${band.name}`"
-        @click="goTo(index)"
-      >
-        <!-- 进度条：只在当前激活的圆点里播放动画，直观显示"还有多久自动切换" -->
-        <span
-          v-if="index === currentIndex"
-          class="progress"
-          :style="{ animationDuration: AUTOPLAY_MS + 'ms' }"
-        ></span>
-      </button>
-    </div>
-  </div>
+      <div class="dots" aria-label="选择精选乐队">
+        <button
+          v-for="(band, index) in safeBands"
+          :key="band._id || index"
+          class="dot"
+          :class="{ active: index === currentIndex }"
+          type="button"
+          :aria-label="`显示 ${band.name || `第 ${index + 1} 支乐队`}`"
+          :aria-current="index === currentIndex ? 'true' : undefined"
+          @click="goTo(index)"
+        >
+          <span
+            v-if="index === currentIndex"
+            class="progress"
+            :class="{ paused: !canAutoplay }"
+            :style="{ animationDuration: `${AUTOPLAY_MS}ms` }"
+          ></span>
+        </button>
+      </div>
+    </template>
+  </section>
 </template>
 
 <style scoped>
 .carousel {
   position: relative;
   width: 100%;
-  height: 580px;
+  height: min(650px, calc(100vh - 88px));
+  min-height: 520px;
   overflow: hidden;
-  background: #000;
+  background: #09090b;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .slide {
@@ -137,14 +218,37 @@ function selectBand(band) {
   visibility: visible;
 }
 
-/* 背景图单独拆一层出来做 Ken Burns 缓慢缩放效果，让画面"活"起来，
-   而不是死板的原地淡入淡出 */
+.visual,
 .bg {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
-  transform: scale(1.08);
+  width: 100%;
+  height: 100%;
+}
+
+.visual {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 25%, rgba(255, 90, 56, 0.36), transparent 30%),
+    linear-gradient(135deg, #3d0b12 0%, #171015 46%, #09090b 100%);
+}
+
+.visual.fallback::after {
+  content: 'ROCK WEB';
+  position: absolute;
+  right: 6%;
+  bottom: 7%;
+  color: rgba(255, 255, 255, 0.045);
+  font-family: 'Anton', sans-serif;
+  font-size: clamp(72px, 14vw, 210px);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.bg {
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.07);
   transition: transform 6s ease-out;
 }
 
@@ -152,211 +256,248 @@ function selectBand(band) {
   transform: scale(1);
 }
 
-/* 遮罩渐变：左侧和底部加深，让文字始终清晰可读，同时保留照片的冲击力 */
 .scrim {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.15) 55%, transparent 100%),
-    linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 45%);
+    linear-gradient(90deg, rgba(5, 5, 7, 0.92) 0%, rgba(5, 5, 7, 0.52) 44%, rgba(5, 5, 7, 0.12) 78%),
+    linear-gradient(to top, rgba(5, 5, 7, 0.86) 0%, transparent 54%);
 }
 
 .content {
   position: absolute;
-  left: 0;
-  bottom: 0;
-  padding: 0 56px 56px;
-  max-width: 640px;
+  left: max(56px, calc((100% - var(--content-width)) / 2));
+  bottom: 64px;
+  width: min(680px, calc(100% - 112px));
   color: #fff;
 }
 
-.index {
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  letter-spacing: 3px;
-  color: #ff5b5b;
-  font-weight: 600;
+.index,
+.eyebrow {
+  color: var(--color-accent-light);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin: 18px 0 0;
+  padding-left: 42px;
+  position: relative;
+}
+
+.eyebrow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 30px;
+  height: 1px;
+  background: currentColor;
 }
 
 .content h2 {
-  margin: 10px 0 16px;
+  margin: 8px 0 18px;
   font-family: 'Anton', sans-serif;
-  font-size: 64px;
-  /* line-height: 1 会裁掉 Anton 这类展示字体的顶部/底部，改成 1.15 留出空间 */
-  line-height: 1.15;
+  font-size: clamp(52px, 6.5vw, 92px);
+  line-height: 1.08;
   letter-spacing: 1px;
   text-transform: uppercase;
-  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  text-wrap: balance;
+  text-shadow: 0 5px 30px rgba(0, 0, 0, 0.52);
 }
 
 .meta {
   display: flex;
   align-items: center;
-  gap: 12px;
-  /* flex-wrap：风格标签一多，窄屏放不下时自动换行，而不是把屏幕撑宽出现横向滚动条 */
   flex-wrap: wrap;
+  gap: 10px;
 }
 
 .chip {
-  padding: 6px 14px;
+  padding: 6px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(6px);
-  font-size: 13px;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .country {
-  font-size: 14px;
-  color: #bbb;
+  color: #c3c1c5;
+  font-size: 13px;
 }
 
 .detail-btn {
-  margin-top: 24px;
-  padding: 10px 24px;
-  background: transparent;
+  margin-top: 28px;
+  padding: 12px 20px;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  color: #fff;
   border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  background: rgba(9, 9, 11, 0.24);
+  color: #fff;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
 }
 
 .detail-btn:hover {
-  background: #ff3b3b;
-  border-color: #ff3b3b;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  transform: translateY(-2px);
 }
 
 .arrow {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(6px);
-  color: #fff;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  font-size: 26px;
-  cursor: pointer;
   z-index: 2;
-  transition: background 0.2s, transform 0.2s;
-  /* flexbox 居中替代 line-height: 1，彻底解决 ‹› 这类字符的基线偏移导致的视觉不居中问题 */
+  top: 50%;
   display: flex;
+  width: 46px;
+  height: 46px;
   align-items: center;
   justify-content: center;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(9, 9, 11, 0.36);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  cursor: pointer;
+  font-size: 25px;
+  transition: background 0.2s, transform 0.2s;
 }
 
 .arrow:hover {
-  background: rgba(255, 59, 59, 0.85);
-  transform: translateY(-50%) scale(1.08);
+  background: rgba(255, 59, 59, 0.88);
+  transform: translateY(-50%) scale(1.06);
 }
 
-.arrow.left {
-  left: 24px;
-}
-
-.arrow.right {
-  right: 24px;
-}
+.arrow.left { left: 22px; }
+.arrow.right { right: 22px; }
 
 .dots {
   position: absolute;
-  bottom: 24px;
-  right: 32px;
+  right: max(32px, calc((100% - var(--content-width)) / 2));
+  bottom: 30px;
+  z-index: 2;
   display: flex;
   gap: 8px;
-  z-index: 2;
 }
 
 .dot {
   position: relative;
-  width: 36px;
+  width: 38px;
   height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.3);
-  border: none;
-  padding: 0;
-  cursor: pointer;
   overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
 }
 
-.dot.active {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* 进度条动画：从 0 宽度长到 100%，时长等于自动播放间隔，直观展示倒计时 */
 .progress {
   position: absolute;
   inset: 0;
-  background: #ff3b3b;
-  width: 0%;
-  animation-name: fill;
-  animation-timing-function: linear;
+  width: 0;
+  background: var(--color-accent);
+  animation: fill linear;
+}
+
+.progress.paused {
+  animation-play-state: paused;
 }
 
 @keyframes fill {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 100%;
-  }
+  to { width: 100%; }
 }
 
 @media (max-width: 720px) {
   .carousel {
-    height: 420px;
+    height: 520px;
+    min-height: 0;
   }
-  .content h2 {
-    font-size: 36px;
-  }
+
   .content {
-    padding: 0 24px 32px;
+    left: 24px;
+    bottom: 72px;
+    width: calc(100% - 48px);
   }
-  /* 手机上箭头按钮占位太大、容易和标题重叠，先缩小尺寸 */
+
+  .content h2 {
+    font-size: clamp(38px, 10vw, 58px);
+  }
+
   .arrow {
+    top: 42%;
     width: 38px;
     height: 38px;
     font-size: 20px;
   }
+
+  .arrow.left { left: 12px; }
+  .arrow.right { right: 12px; }
+
+  .dots {
+    right: auto;
+    bottom: 28px;
+    left: 24px;
+  }
 }
 
-/* 480px 以下是常见手机竖屏宽度，再进一步收紧字号和留白，
-   避免大字号在小屏幕上挤压掉可读性 */
 @media (max-width: 480px) {
   .carousel {
-    height: 380px;
+    height: 500px;
   }
+
+  .scrim {
+    background:
+      linear-gradient(to top, rgba(5, 5, 7, 0.96) 0%, rgba(5, 5, 7, 0.48) 62%, rgba(5, 5, 7, 0.08) 100%),
+      linear-gradient(90deg, rgba(5, 5, 7, 0.42), transparent);
+  }
+
   .content {
-    max-width: 100%;
-    padding: 0 16px 24px;
+    left: 18px;
+    bottom: 70px;
+    width: calc(100% - 36px);
   }
+
   .content h2 {
-    font-size: 28px;
+    margin-bottom: 14px;
+    font-size: clamp(34px, 12vw, 48px);
   }
-  .index {
-    font-size: 11px;
+
+  .eyebrow {
+    margin-top: 12px;
   }
+
   .chip {
+    padding: 5px 10px;
     font-size: 11px;
-    padding: 4px 10px;
   }
+
   .detail-btn {
-    padding: 8px 18px;
-    font-size: 13px;
+    margin-top: 20px;
+    padding: 10px 16px;
   }
+
   .dots {
-    right: 16px;
-    bottom: 16px;
+    left: 18px;
+    bottom: 26px;
   }
+
   .dot {
-    width: 24px;
+    width: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg,
+  .bg.active {
+    transform: none;
   }
 }
 </style>

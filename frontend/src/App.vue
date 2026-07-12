@@ -1,141 +1,146 @@
 <script setup>
-// App.vue 现在是整个网站的"外壳"：放通用的顶部导航栏，
-// 具体是首页还是详情页的内容，交给 <router-view> 根据当前网址自动渲染对应组件
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 
 const siteName = ref('Rock Web')
-const router = useRouter()
 </script>
 
 <template>
   <div class="page">
     <header class="site-header">
-      <div class="brand" @click="router.push({ name: 'home' })">
+      <router-link class="brand" :to="{ name: 'home' }" aria-label="返回 Rock Web 首页">
         <h1>{{ siteName }}</h1>
         <span class="tagline">LOUD · RAW · LIVE</span>
-      </div>
-      <!--
-        router-link 是 Vue Router 提供的"导航链接"组件，效果类似 <a>，
-        但点击时是路由内部跳转（不刷新整页），并且当前所在页面会自动带上
-        router-link-active 这个 class，方便用 CSS 做高亮
-      -->
-      <nav class="nav">
+      </router-link>
+
+      <nav class="nav" aria-label="主要导航">
         <router-link :to="{ name: 'home' }">首页</router-link>
         <router-link :to="{ name: 'band-list' }">乐队</router-link>
         <router-link :to="{ name: 'album-list' }">专辑</router-link>
       </nav>
     </header>
 
-    <!--
-      router-view 是 Vue Router 提供的"占位组件"：
-      当前网址匹配到哪个路由，这里就自动渲染对应的页面组件（Home.vue 或 BandDetail.vue）
-    -->
-    <router-view />
+    <main>
+      <router-view />
+    </main>
   </div>
 </template>
 
 <style scoped>
 .page {
   min-height: 100vh;
-  /* 纯黑背景太平了，加一点暗红氛围光晕，营造 live house 的现场感 */
   background:
-    radial-gradient(circle at 20% -10%, rgba(200, 30, 40, 0.25), transparent 60%),
-    #0a0a0c;
-  color: #f2f2f2;
-  font-family: 'Inter', system-ui, sans-serif;
+    radial-gradient(circle at 20% -10%, rgba(200, 30, 40, 0.25), transparent 58%),
+    var(--color-bg);
+  color: var(--color-text);
 }
 
 .site-header {
+  position: relative;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 56px;
+  gap: 32px;
+  padding: 24px clamp(24px, 4vw, 56px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(9, 9, 11, 0.78);
+  backdrop-filter: blur(18px);
 }
 
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: baseline;
   gap: 16px;
-  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 8px;
 }
 
 .site-header h1 {
   margin: 0;
-  /* Anton 是一款很"硬"的展示字体，专门用来放大标题制造冲击力 */
+  padding-top: 4px;
   font-family: 'Anton', sans-serif;
   font-size: 34px;
-  /* 展示字体的字形偏高，line-height 太紧会导致上下被裁，1.3 留足呼吸空间 */
   line-height: 1.3;
-  padding-top: 4px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  background: linear-gradient(90deg, #ff3b3b, #ff9d3b);
+  background: linear-gradient(90deg, var(--color-accent), #ff9d3b);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .tagline {
-  font-size: 13px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 3px;
-  color: #888;
-  font-weight: 600;
 }
 
 .nav {
   display: flex;
-  gap: 32px;
+  align-items: center;
+  gap: 10px;
 }
 
 .nav a {
-  color: #ddd;
+  padding: 9px 13px;
+  border-radius: 999px;
+  color: #d8d7da;
   text-decoration: none;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 650;
   letter-spacing: 0.5px;
-  transition: color 0.2s;
+  transition: color 0.2s, background 0.2s;
 }
 
-.nav a:hover {
-  color: #ff5b5b;
-}
-
-/* router-link-active 是 Vue Router 自动加给"当前所在页面"对应链接的 class，
-   不用自己写代码判断"现在在哪个页面" */
+.nav a:hover,
 .nav a.router-link-active {
-  color: #ff5b5b;
+  color: #fff;
+  background: rgba(255, 59, 59, 0.14);
 }
 
 @media (max-width: 720px) {
   .site-header {
-    padding: 20px 24px;
-    flex-direction: column;
-    gap: 16px;
     align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 17px 24px;
   }
+
   .nav {
-    gap: 20px;
+    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 480px) {
   .site-header {
-    padding: 16px 18px;
+    padding: 14px 18px;
   }
+
+  .brand {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+
   .site-header h1 {
-    font-size: 26px;
+    font-size: 27px;
   }
+
   .tagline {
-    font-size: 11px;
-    letter-spacing: 2px;
+    font-size: 10px;
+    letter-spacing: 2.2px;
   }
+
   .nav {
-    gap: 16px;
     width: 100%;
+    gap: 4px;
   }
+
   .nav a {
-    font-size: 14px;
+    padding: 8px 11px;
+    font-size: 13px;
   }
 }
 </style>
