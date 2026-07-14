@@ -3,11 +3,13 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAllAlbums } from '../api/albums.js'
+import fallbackImage from '../assets/generated/rockweb-work-cover.png'
 
 const router = useRouter()
 const albums = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
+const brokenImages = ref(new Set())
 
 onMounted(async () => {
   try {
@@ -27,6 +29,10 @@ function goToBand(album) {
     router.push({ name: 'band-detail', params: { id: album.band._id } })
   }
 }
+
+function markImageBroken(id) {
+  brokenImages.value = new Set([...brokenImages.value, id])
+}
 </script>
 
 <template>
@@ -39,7 +45,13 @@ function goToBand(album) {
 
     <div v-else class="grid">
       <div v-for="album in albums" :key="album._id" class="card" @click="goToBand(album)">
-        <img class="cover" :src="album.coverUrl" :alt="album.title" />
+        <img
+          class="cover"
+          :src="album.coverUrl && !brokenImages.has(album._id) ? album.coverUrl : fallbackImage"
+          :alt="album.title"
+          loading="lazy"
+          @error="markImageBroken(album._id)"
+        />
         <div class="card-body">
           <h3>{{ album.title }}</h3>
           <p class="band-name" v-if="album.band">{{ album.band.name }}</p>
@@ -52,17 +64,18 @@ function goToBand(album) {
 
 <style scoped>
 .list-page {
-  max-width: 1100px;
+  max-width: var(--max);
   margin: 0 auto;
-  padding: 24px 24px 96px;
+  padding: 84px var(--pad) 110px;
 }
 
 .list-page h1 {
-  font-family: 'Anton', sans-serif;
-  font-size: 32px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin: 0 0 32px;
+  max-width: 720px;
+  margin: 0 0 42px;
+  font-family: var(--sans);
+  font-size: clamp(52px, 8vw, 104px);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
 }
 
 .status {
@@ -70,42 +83,44 @@ function goToBand(album) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  border-top: 1px dotted var(--line);
+  border-bottom: 1px dotted var(--line);
+  color: var(--muted);
 }
 
 .status.error {
-  color: #ff6b6b;
+  color: var(--coral-text);
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s, border-color 0.2s;
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(255, 59, 59, 0.5);
+  transform: translateY(-5px);
+  border-color: var(--coral);
 }
 
 .cover {
   width: 100%;
-  height: 200px;
+  height: 280px;
+  border-bottom: 1px solid var(--ink);
   object-fit: cover;
   display: block;
 }
 
 .card-body {
-  padding: 16px;
+  padding: 18px;
 }
 
 .card-body h3 {
@@ -116,29 +131,29 @@ function goToBand(album) {
 .band-name {
   margin: 0 0 4px;
   font-size: 13px;
-  color: #ff5b5b;
+  color: var(--coral-text);
 }
 
 .year {
   margin: 0;
   font-size: 13px;
-  color: #999;
+  color: var(--muted);
 }
 
 @media (max-width: 480px) {
   .list-page {
-    padding: 16px 16px 64px;
+    padding: 58px 18px 72px;
   }
   .list-page h1 {
-    font-size: 24px;
+    font-size: 54px;
     margin-bottom: 24px;
   }
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
   }
   .cover {
-    height: 150px;
+    height: 210px;
   }
   .card-body {
     padding: 12px;

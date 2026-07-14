@@ -9,7 +9,7 @@ This repository contains two independent npm packages; there is no root `package
 - `frontend/` — Vue 3 single-page application using Vite, Vue Router, and Axios (ES modules)
 - `backend/` — Express 5 REST API using Mongoose and MongoDB Atlas (CommonJS)
 
-Run npm commands from the package directory that owns the corresponding `package.json`.
+Run npm commands from the package directory that owns the corresponding `package.json`. Each package has its own `package-lock.json`; update only the lockfile for the package whose dependencies change.
 
 ## Development commands
 
@@ -56,6 +56,10 @@ The seed/update scripts use upserts and require the backend environment configur
 
 There is currently no test runner, test suite, lint command, formatter command, or CI configuration. Consequently, there is no supported single-test command. For frontend changes, at minimum run `npm run build` from `frontend/`; backend verification currently requires starting the service against a configured database and exercising the affected endpoint.
 
+## Coding conventions
+
+Match the existing JavaScript style: two-space indentation, single quotes, no semicolons, trailing commas in multiline objects, and `const` by default. Frontend code uses ES modules and Vue `<script setup>`; backend code uses CommonJS. Keep HTTP access in `frontend/src/api/`, not directly in views. No formatter or linter is configured, so preserve nearby formatting and avoid unrelated rewrites.
+
 ## Architecture
 
 ### Frontend request and navigation flow
@@ -70,7 +74,7 @@ Views do not construct HTTP requests directly. Domain modules under `frontend/sr
 - attaches the local admin token as a Bearer token;
 - clears invalid tokens after a 401 and redirects to login only from admin paths.
 
-The principal public flow is: `Home.vue` fetches featured bands for `Carousel.vue`; selecting one opens `BandDetail.vue`, which fetches the band and its albums concurrently. `AlbumList.vue` relies on the backend populating each album's `band` reference. `AlbumCard.vue` plays tracks through either an official third-party `embedUrl` iframe or a native player for an `audioUrl`.
+The principal public flow is: `Home.vue` fetches featured bands for `Carousel.vue`; selecting one opens `BandDetail.vue`, which fetches the band and its albums concurrently. `AlbumList.vue` relies on the backend populating each album's `band` reference. `AlbumCard.vue` selects tracks and delegates playback through `playTrack` from `composables/useMusicPlayer.js`, which owns shared module-level player state. `FloatingMusicPlayer.vue` renders either a native `<audio>` player for an `audioUrl` or an official third-party iframe for an `embedUrl`.
 
 Admin add/edit pages reuse the same form component based on whether the route contains an ID. `ImageUploader.vue` and `AudioUploader.vue` upload `FormData` and write the returned Cloudinary URL into the parent form.
 
@@ -100,6 +104,6 @@ If `CORS_ORIGIN` is absent, the backend permits all origins for local convenienc
 
 Commercial music should use official third-party player embeds. Cloudinary audio upload is intended only for audio the site owner owns or is authorized to distribute. Seed cover images are placeholders and should only be replaced with legally usable images.
 
-NetEase embeds are standardized on URL parameter `height=66`; the official player does not gain a volume control from a larger URL height. Note that `AlbumCard.vue` separately sets the rendered iframe CSS height (currently larger than 66 px), so URL-height and layout-height changes are distinct concerns.
+NetEase embeds are standardized on URL parameter `height=66`; the official player does not gain a volume control from a larger URL height. Note that `FloatingMusicPlayer.vue` separately sets the rendered iframe CSS height (currently larger than 66 px), so URL-height and layout-height changes are distinct concerns.
 
 Deleting a band does not cascade to its albums; associated albums must be handled separately.

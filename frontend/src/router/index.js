@@ -69,6 +69,11 @@ export const router = createRouter({
   // 而不是带 # 号的旧式写法（如 /#/bands/xxx）
   history: createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) return { el: to.hash, behavior: 'smooth' }
+    return { top: 0, behavior: 'smooth' }
+  },
 })
 
 // 全局前置守卫（beforeEach）：每次路由跳转之前都会先经过这个函数检查一遍。

@@ -2,6 +2,7 @@
 // AlbumCard：展示一张专辑的封面/信息，点击可以展开/收起曲目列表
 import { ref } from 'vue'
 import { useMusicPlayer } from '../composables/useMusicPlayer.js'
+import fallbackImage from '../assets/generated/rockweb-work-cover.png'
 
 const props = defineProps({
   album: {
@@ -15,6 +16,7 @@ const props = defineProps({
 })
 
 const expanded = ref(false)
+const imageFailed = ref(false)
 const { currentTrackKey, isPlaying, getTrackKey, playTrack } = useMusicPlayer()
 
 function toggle() {
@@ -41,7 +43,12 @@ function selectTrack(track) {
 <template>
   <div class="album-card">
     <div class="album-header" @click="toggle">
-      <img class="cover" :src="album.coverUrl" :alt="album.title" />
+      <img
+        class="cover"
+        :src="album.coverUrl && !imageFailed ? album.coverUrl : fallbackImage"
+        :alt="album.title"
+        @error="imageFailed = true"
+      />
       <div class="info">
         <h4>{{ album.title }}</h4>
         <p class="year" v-if="album.releaseYear">{{ album.releaseYear }} 年发行</p>
@@ -89,9 +96,8 @@ function selectTrack(track) {
 .album-card {
   margin-bottom: 16px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ink);
+  background: var(--paper);
 }
 
 .album-header {
@@ -106,7 +112,7 @@ function selectTrack(track) {
   width: 64px;
   height: 64px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border: 1px solid var(--ink);
   object-fit: cover;
 }
 
@@ -117,19 +123,19 @@ function selectTrack(track) {
 
 .info h4 {
   margin: 0 0 4px;
-  font-size: 17px;
+  font-size: 20px;
 }
 
 .year {
   margin: 0 0 4px;
-  color: #ff5b5b;
+  color: var(--coral-text);
   font-size: 13px;
 }
 
 .desc {
   margin: 0;
   overflow: hidden;
-  color: #999;
+  color: var(--muted);
   font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -137,7 +143,7 @@ function selectTrack(track) {
 
 .arrow {
   flex-shrink: 0;
-  color: #999;
+  color: var(--muted);
   font-size: 20px;
   transition: transform 0.2s;
 }
@@ -148,12 +154,12 @@ function selectTrack(track) {
 
 .tracklist {
   padding: 8px 16px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px dotted var(--line);
 }
 
 .track {
   padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px dotted var(--line);
 }
 
 .track.active {
@@ -177,13 +183,13 @@ function selectTrack(track) {
 
 .now-playing {
   margin-left: 9px;
-  color: var(--color-accent-light);
+  color: var(--coral-text);
   font-size: 11px;
   font-weight: 700;
 }
 
 .track-duration {
-  color: #777;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -192,23 +198,22 @@ function selectTrack(track) {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 91, 91, 0.28);
-  border-radius: 999px;
-  background: rgba(255, 59, 59, 0.09);
-  color: #f5e9eb;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 
 .track-play-button:hover {
-  border-color: rgba(255, 91, 91, 0.6);
-  background: rgba(255, 59, 59, 0.16);
+  border-color: var(--coral);
+  background: var(--coral);
 }
 
 .no-preview,
 .empty {
-  color: #666;
+  color: var(--muted);
   font-size: 13px;
 }
 

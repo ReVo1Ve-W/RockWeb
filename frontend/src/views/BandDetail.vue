@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getBandById } from '../api/bands.js'
 import { getAlbumsByBand } from '../api/albums.js'
 import AlbumCard from '../components/AlbumCard.vue'
+import fallbackImage from '../assets/generated/rockweb-archive-portrait.png'
 
 // useRoute() 让组件能读取"当前网址"的信息，比如 /bands/64f1a2b3 里的 64f1a2b3
 // useRouter() 用来主动触发跳转（比如点"返回首页"按钮）
@@ -44,7 +45,7 @@ onMounted(async () => {
 
     <template v-else-if="band">
       <!-- 顶部大图 + 乐队名，跟首页轮播图风格保持一致 -->
-      <div class="hero" :style="{ backgroundImage: `url(${band.coverImage})` }">
+      <div class="hero" :style="{ backgroundImage: `url(${band.coverImage || fallbackImage})` }">
         <div class="hero-scrim"></div>
         <button class="back-btn" @click="router.push({ name: 'home' })">← 返回首页</button>
         <div class="hero-content">
@@ -88,8 +89,8 @@ onMounted(async () => {
 <style scoped>
 .detail-page {
   min-height: 100vh;
-  background: #0a0a0c;
-  color: #f2f2f2;
+  background: var(--paper);
+  color: var(--ink);
 }
 
 .status {
@@ -97,16 +98,17 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--muted);
 }
 
 .status.error {
-  color: #ff6b6b;
+  color: var(--coral-text);
 }
 
 .hero {
   position: relative;
-  height: 420px;
+  height: min(590px, 64vh);
+  border-bottom: 1px solid var(--ink);
   background-size: cover;
   background-position: center;
 }
@@ -114,7 +116,9 @@ onMounted(async () => {
 .hero-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(10, 10, 12, 1) 0%, rgba(10, 10, 12, 0.3) 60%, rgba(10, 10, 12, 0.6) 100%);
+  background:
+    linear-gradient(to top, rgba(29, 27, 26, 0.88) 0%, rgba(29, 27, 26, 0.22) 60%, rgba(29, 27, 26, 0.36) 100%),
+    linear-gradient(90deg, rgba(29, 27, 26, 0.52), transparent 70%);
 }
 
 .back-btn {
@@ -122,8 +126,8 @@ onMounted(async () => {
   top: 24px;
   left: 32px;
   z-index: 2;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(243, 238, 229, 0.16);
+  border: 1px solid var(--paper);
   backdrop-filter: blur(6px);
   color: #fff;
   padding: 8px 18px;
@@ -133,7 +137,8 @@ onMounted(async () => {
 }
 
 .back-btn:hover {
-  background: rgba(255, 59, 59, 0.85);
+  background: var(--coral);
+  color: var(--ink);
 }
 
 .hero-content {
@@ -141,12 +146,13 @@ onMounted(async () => {
   left: 56px;
   bottom: 40px;
   z-index: 1;
+  color: var(--paper);
 }
 
 .hero-content h1 {
   margin: 0 0 16px;
-  font-family: 'Anton', sans-serif;
-  font-size: 56px;
+  font-family: var(--sans);
+  font-size: clamp(46px, 7vw, 96px);
   line-height: 1.2;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -162,34 +168,35 @@ onMounted(async () => {
 .chip {
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(29, 27, 26, 0.2);
+  border: 1px solid rgba(243, 238, 229, 0.6);
   font-size: 13px;
   font-weight: 600;
 }
 
 .country {
   font-size: 14px;
-  color: #bbb;
+  color: rgba(243, 238, 229, 0.78);
 }
 
 .body {
-  max-width: 860px;
+  max-width: var(--max);
   margin: 0 auto;
-  padding: 56px 24px 96px;
+  padding: 84px var(--pad) 110px;
 }
 
 .bio-section h3,
 .albums-section h3 {
-  font-family: 'Anton', sans-serif;
-  font-size: 24px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
   margin: 0 0 16px;
+  font-family: var(--sans);
+  font-size: clamp(38px, 5vw, 62px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
 }
 
 .bio-section p {
-  color: #ccc;
+  max-width: 760px;
+  color: var(--muted);
   line-height: 1.8;
   font-size: 16px;
 }
@@ -200,7 +207,7 @@ onMounted(async () => {
 
 .members h4 {
   font-size: 15px;
-  color: #999;
+  color: var(--coral-text);
   letter-spacing: 1px;
   margin: 0 0 12px;
 }
@@ -215,20 +222,20 @@ onMounted(async () => {
 }
 
 .members li {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--paper-2);
+  border: 1px solid var(--line);
   padding: 8px 16px;
   border-radius: 8px;
   font-size: 14px;
-  color: #ddd;
+  color: var(--ink);
 }
 
 .albums-section {
-  margin-top: 64px;
+  margin-top: 96px;
 }
 
 .empty {
-  color: #666;
+  color: var(--muted);
   font-size: 14px;
 }
 

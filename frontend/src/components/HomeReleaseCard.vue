@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import fallbackImage from '../assets/generated/rockweb-work-cover.png'
 
 const props = defineProps({
   album: {
@@ -34,7 +35,7 @@ function selectAlbum() {
         loading="lazy"
         @error="imageFailed = true"
       />
-      <span v-else aria-hidden="true">RW</span>
+      <img v-else :src="fallbackImage" :alt="`${album.title || '专辑'}默认封面`" loading="lazy" />
       <span v-if="album.releaseYear" class="year">{{ album.releaseYear }}</span>
     </div>
 
@@ -52,16 +53,14 @@ function selectAlbum() {
   position: relative;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.13);
+  border: 1px solid var(--ink);
+  background: var(--paper);
   transition: border-color 0.25s, transform 0.25s, background 0.25s;
 }
 
 .release-card.interactive:hover {
-  border-color: rgba(255, 104, 104, 0.44);
-  background: rgba(255, 255, 255, 0.075);
+  border-color: var(--coral);
+  background: var(--paper-2);
   transform: translateY(-5px);
 }
 
@@ -80,9 +79,8 @@ function selectAlbum() {
   position: relative;
   aspect-ratio: 1;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 74% 24%, rgba(255, 93, 64, 0.48), transparent 28%),
-    linear-gradient(145deg, #3c0c13, #151116 58%, #08080a);
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--ink);
 }
 
 .cover img {
@@ -102,8 +100,8 @@ function selectAlbum() {
 }
 
 .cover.fallback > span:first-child {
-  color: rgba(255, 255, 255, 0.13);
-  font-family: 'Anton', sans-serif;
+  color: rgba(29, 27, 26, 0.18);
+  font-family: var(--sans);
   font-size: clamp(56px, 7vw, 92px);
   letter-spacing: 0.06em;
 }
@@ -113,11 +111,9 @@ function selectAlbum() {
   right: 12px;
   bottom: 12px;
   padding: 5px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  background: rgba(7, 7, 9, 0.72);
-  backdrop-filter: blur(8px);
-  color: #fff;
+  border: 1px solid var(--paper);
+  background: var(--ink);
+  color: var(--paper);
   font-size: 11px;
   font-weight: 750;
 }
@@ -128,7 +124,7 @@ function selectAlbum() {
 
 .band-name {
   margin: 0 0 7px;
-  color: var(--color-accent-light);
+  color: var(--coral-text);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -139,7 +135,7 @@ h3 {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  color: #fff;
+  color: var(--ink);
   font-size: 19px;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -151,7 +147,7 @@ h3 {
   min-height: 44px;
   margin: 12px 0 17px;
   overflow: hidden;
-  color: var(--color-text-soft);
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.65;
   -webkit-box-orient: vertical;
@@ -159,13 +155,13 @@ h3 {
 }
 
 .more {
-  color: #ddd;
+  color: var(--ink);
   font-size: 12px;
   font-weight: 700;
 }
 
 .release-card.interactive:hover .more {
-  color: var(--color-accent-light);
+  color: var(--coral-text);
 }
 
 @media (max-width: 560px) {

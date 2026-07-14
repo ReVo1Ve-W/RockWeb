@@ -198,11 +198,10 @@ onUnmounted(() => {
 .carousel {
   position: relative;
   width: 100%;
-  height: min(650px, calc(100vh - 88px));
-  min-height: 520px;
+  height: 100%;
+  min-height: 420px;
   overflow: hidden;
-  background: #09090b;
-  border-bottom: 1px solid var(--color-border);
+  background: var(--paper);
 }
 
 .slide {
@@ -229,8 +228,8 @@ onUnmounted(() => {
 .visual {
   overflow: hidden;
   background:
-    radial-gradient(circle at 72% 25%, rgba(255, 90, 56, 0.36), transparent 30%),
-    linear-gradient(135deg, #3d0b12 0%, #171015 46%, #09090b 100%);
+    radial-gradient(circle at 72% 25%, rgba(238, 98, 75, 0.24), transparent 30%),
+    linear-gradient(135deg, #d7cbbd 0%, #b1b7a9 46%, #766f68 100%);
 }
 
 .visual.fallback::after {
@@ -238,8 +237,8 @@ onUnmounted(() => {
   position: absolute;
   right: 6%;
   bottom: 7%;
-  color: rgba(255, 255, 255, 0.045);
-  font-family: 'Anton', sans-serif;
+  color: rgba(29, 27, 26, 0.14);
+  font-family: var(--sans);
   font-size: clamp(72px, 14vw, 210px);
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -260,8 +259,8 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(5, 5, 7, 0.92) 0%, rgba(5, 5, 7, 0.52) 44%, rgba(5, 5, 7, 0.12) 78%),
-    linear-gradient(to top, rgba(5, 5, 7, 0.86) 0%, transparent 54%);
+    linear-gradient(90deg, rgba(29, 27, 26, 0.78) 0%, rgba(29, 27, 26, 0.36) 44%, rgba(29, 27, 26, 0.05) 78%),
+    linear-gradient(to top, rgba(29, 27, 26, 0.72) 0%, transparent 54%);
 }
 
 .content {
@@ -299,7 +298,7 @@ onUnmounted(() => {
 
 .content h2 {
   margin: 8px 0 18px;
-  font-family: 'Anton', sans-serif;
+  font-family: var(--sans);
   font-size: clamp(52px, 6.5vw, 92px);
   line-height: 1.08;
   letter-spacing: 1px;
@@ -317,9 +316,9 @@ onUnmounted(() => {
 
 .chip {
   padding: 6px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(243, 238, 229, 0.6);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(29, 27, 26, 0.22);
   backdrop-filter: blur(8px);
   font-size: 12px;
   font-weight: 700;
@@ -333,7 +332,7 @@ onUnmounted(() => {
 .detail-btn {
   margin-top: 28px;
   padding: 12px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--paper);
   border-radius: 999px;
   background: rgba(9, 9, 11, 0.24);
   color: #fff;
@@ -345,8 +344,9 @@ onUnmounted(() => {
 }
 
 .detail-btn:hover {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
+  border-color: var(--coral);
+  background: var(--coral);
+  color: var(--ink);
   transform: translateY(-2px);
 }
 
@@ -360,9 +360,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   transform: translateY(-50%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--paper);
   border-radius: 50%;
-  background: rgba(9, 9, 11, 0.36);
+  background: rgba(29, 27, 26, 0.35);
   backdrop-filter: blur(8px);
   color: #fff;
   cursor: pointer;
@@ -371,7 +371,8 @@ onUnmounted(() => {
 }
 
 .arrow:hover {
-  background: rgba(255, 59, 59, 0.88);
+  background: var(--coral);
+  color: var(--ink);
   transform: translateY(-50%) scale(1.06);
 }
 
@@ -395,7 +396,7 @@ onUnmounted(() => {
   padding: 0;
   border: 0;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(29, 27, 26, 0.32);
   cursor: pointer;
 }
 
@@ -403,7 +404,7 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   width: 0;
-  background: var(--color-accent);
+  background: var(--coral);
   animation: fill linear;
 }
 

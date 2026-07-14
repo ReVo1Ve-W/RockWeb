@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useMusicPlayer } from '../composables/useMusicPlayer.js'
 
 const {
@@ -10,10 +10,12 @@ const {
   isOpen,
   isPlaying,
   volume,
+  isMuted,
   registerAudioElement,
   playAudio,
   togglePlayback,
   setVolume,
+  toggleMute,
   closePlayer,
   markPlaying,
   markPaused,
@@ -23,6 +25,13 @@ const playerElement = ref(null)
 const audioElement = ref(null)
 const position = ref({ x: 0, y: 0 })
 const hasCustomPosition = ref(false)
+const volumeIcon = computed(() => {
+  if (isMuted.value) return '🔇'
+  if (volume.value < 0.34) return '🔈'
+  if (volume.value < 0.67) return '🔉'
+  return '🔊'
+})
+const muteButtonLabel = computed(() => isMuted.value ? '恢复音量' : '静音')
 let dragState = null
 
 function panelSize() {
@@ -146,8 +155,17 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
         {{ isPlaying ? '❚❚' : '▶' }}
       </button>
       <div class="volume-control">
-        <span aria-hidden="true">♪</span>
-        <label class="sr-only" for="global-player-volume">音量</label>
+        <button
+          class="mute-button"
+          type="button"
+          :aria-label="muteButtonLabel"
+          :aria-pressed="isMuted"
+          :title="muteButtonLabel"
+          @click="toggleMute"
+        >
+          <span aria-hidden="true">{{ volumeIcon }}</span>
+        </button>
+        <label class="sr-only" for="global-player-volume">播放器音量</label>
         <input
           id="global-player-volume"
           type="range"
@@ -155,14 +173,15 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
           max="1"
           step="0.01"
           :value="volume"
+          :aria-valuetext="`音量 ${Math.round(volume * 100)}%`"
           @input="updateVolume"
         />
-        <span class="volume-value">{{ Math.round(volume * 100) }}%</span>
+        <span class="volume-value" aria-live="polite">{{ Math.round(volume * 100) }}%</span>
       </div>
     </div>
 
     <div v-else class="embed-controls">
-      <p>请使用官方播放器控制播放；可用功能由音乐平台决定。</p>
+      <p>官方跨域播放器不开放本站音量控制，请使用播放器内控件或设备系统音量。</p>
       <iframe
         :src="currentTrack.embedUrl"
         :title="`${currentTrack.title || '曲目'}官方播放器`"
@@ -179,11 +198,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
   z-index: 1000;
   width: min(360px, calc(100vw - 24px));
   overflow: hidden;
-  border: 1px solid rgba(255, 113, 94, 0.38);
-  border-radius: 16px;
-  background: rgba(16, 14, 18, 0.96);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
-  color: #fff;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 5px 5px 0 var(--ink);
+  color: var(--ink);
   backdrop-filter: blur(18px);
 }
 
@@ -193,8 +211,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
   align-items: center;
   gap: 10px;
   padding: 12px 12px 11px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(110deg, rgba(213, 41, 48, 0.28), rgba(255, 133, 61, 0.08));
+  border-bottom: 1px dotted var(--line);
+  background: var(--paper-2);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -205,7 +223,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
 }
 
 .grip {
-  color: rgba(255, 255, 255, 0.42);
+  color: var(--muted);
   font-size: 20px;
 }
 
@@ -222,18 +240,20 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
 }
 
 .track-info strong {
+  color: var(--ink);
   font-size: 14px;
   line-height: 1.4;
 }
 
 .track-info small {
   margin-top: 2px;
-  color: #aaa5ac;
+  color: var(--muted);
   font-size: 11px;
 }
 
 .close-button,
-.play-button {
+.play-button,
+.mute-button {
   display: grid;
   place-items: center;
   border: 0;
@@ -245,12 +265,13 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: var(--ink);
   font-size: 20px;
 }
 
 .close-button:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--coral);
 }
 
 .native-controls {
@@ -265,8 +286,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-accent), #ff8b3d);
-  box-shadow: 0 8px 24px rgba(214, 42, 48, 0.32);
+  background: var(--ink);
+  color: var(--paper);
   font-size: 16px;
 }
 
@@ -277,8 +298,33 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
   grid-template-columns: auto minmax(80px, 1fr) 38px;
   align-items: center;
   gap: 8px;
-  color: #c9c5ca;
+  color: var(--muted);
   font-size: 12px;
+}
+
+.mute-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.mute-button:hover {
+  background: var(--coral);
+}
+
+.mute-button:active {
+  transform: scale(0.94);
+}
+
+.mute-button:focus-visible,
+.volume-control input:focus-visible {
+  outline: 2px solid #ff8b3d;
+  outline-offset: 2px;
 }
 
 .volume-control input {
@@ -288,7 +334,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
 }
 
 .volume-value {
-  color: #8f8a92;
+  color: var(--muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -299,7 +345,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
 
 .embed-controls p {
   margin: 0 0 9px;
-  color: #928d95;
+  color: var(--muted);
   font-size: 11px;
   line-height: 1.5;
 }
@@ -308,8 +354,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', keepInViewport))
   display: block;
   width: 100%;
   height: 86px;
-  border-radius: 9px;
-  background: #111;
+  border: 1px solid var(--ink);
+  background: var(--paper-2);
 }
 
 .sr-only {
