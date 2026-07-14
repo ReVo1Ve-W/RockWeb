@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Carousel from '../components/Carousel.vue'
 import HomeReleaseCard from '../components/HomeReleaseCard.vue'
@@ -24,7 +24,9 @@ const releasesLoading = ref(true)
 const heroError = ref('')
 const releasesError = ref('')
 const archiveFilter = ref('all')
+const homeElement = ref(null)
 const { currentTrackKey, isPlaying, getTrackKey, playTrack } = useMusicPlayer()
+let revealObserver = null
 
 const latestReleases = computed(() =>
   [...albums.value]
@@ -191,15 +193,53 @@ function selectTrack(track) {
   playTrack(track, trackContext(track))
 }
 
+function observeRevealTargets() {
+  if (!revealObserver || !homeElement.value) return
+
+  nextTick(() => {
+    homeElement.value.querySelectorAll('[data-reveal]').forEach((element) => {
+      if (element.dataset.revealObserved) return
+      element.dataset.revealObserved = 'true'
+      revealObserver.observe(element)
+    })
+  })
+}
+
 onMounted(() => {
   loadBands()
   loadAlbums()
+
+  if (
+    homeElement.value &&
+    'IntersectionObserver' in window &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    homeElement.value.classList.add('has-reveal')
+    revealObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          entry.target.classList.add('is-visible')
+          revealObserver.unobserve(entry.target)
+        })
+      },
+      { rootMargin: '0px 0px -12% 0px', threshold: 0.12 }
+    )
+    observeRevealTargets()
+  }
+})
+
+watch([archiveEntries, filteredArchiveEntries], observeRevealTargets, { flush: 'post' })
+
+onBeforeUnmount(() => {
+  revealObserver?.disconnect()
+  revealObserver = null
 })
 </script>
 
 <template>
-  <div class="home">
-    <section class="hero-section" aria-labelledby="hero-title">
+  <div ref="homeElement" class="home">
+    <section class="hero-section" data-reveal aria-labelledby="hero-title">
       <div class="wrap">
         <div class="hero-grid">
           <div>
@@ -238,7 +278,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="about-section" id="about" aria-labelledby="about-title">
+    <section class="about-section" id="about" data-reveal aria-labelledby="about-title">
       <div class="wrap about-grid">
         <div class="about-art"><img :src="archivePortrait" alt="摇滚现场与唱片的档案拼贴" /></div>
         <div class="about-copy">
@@ -250,14 +290,20 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="capabilities" aria-labelledby="capabilities-title">
+    <section class="capabilities" data-reveal aria-labelledby="capabilities-title">
       <div class="wrap">
         <div class="section-head">
           <p class="section-index mono">Ⅲ / 能力</p>
           <h2 id="capabilities-title">把一张唱片的前后都留下<span class="dot"></span></h2>
         </div>
         <div class="cap-grid">
-          <article v-for="cap in capabilities" :key="cap.number" class="cap">
+          <article
+            v-for="(cap, index) in capabilities"
+            :key="cap.number"
+            class="cap"
+            data-reveal
+            :style="{ '--reveal-delay': `${index * 80}ms` }"
+          >
             <img :src="cap.image" :alt="cap.title" loading="lazy" />
             <p class="mono">{{ cap.number }} / {{ cap.label }}</p>
             <h3>{{ cap.title }}</h3>
@@ -267,7 +313,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section id="albums" class="archive-section" aria-labelledby="archive-title">
+    <section id="albums" class="archive-section" data-reveal aria-labelledby="archive-title">
       <div class="wrap">
         <div class="section-head">
           <p class="section-index mono">Ⅳ / 档案</p>
@@ -294,6 +340,7 @@ onMounted(() => {
             v-for="entry in filteredArchiveEntries"
             :key="entry.id"
             class="lab"
+            data-reveal
             :class="{ interactive: entry.track || entry.bandId }"
           >
             <button v-if="entry.track || entry.bandId" class="lab-action" type="button" :aria-label="`打开 ${entry.title}`" @click="goToEntry(entry)"></button>
@@ -309,14 +356,20 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="method" aria-labelledby="method-title">
+    <section class="method" data-reveal aria-labelledby="method-title">
       <div class="wrap">
         <div class="section-head">
           <p class="section-index mono">Ⅴ / 方法</p>
           <h2 id="method-title">四步，重新找到今晚的声音<span class="dot"></span></h2>
         </div>
         <div class="method-grid">
-          <article v-for="item in methods" :key="item.number" class="step">
+          <article
+            v-for="(item, index) in methods"
+            :key="item.number"
+            class="step"
+            data-reveal
+            :style="{ '--reveal-delay': `${index * 80}ms` }"
+          >
             <img :src="item.image" :alt="item.title" loading="lazy" />
             <p class="mono">{{ item.number }}</p>
             <h3>{{ item.title }}</h3>
@@ -326,14 +379,21 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="work" aria-labelledby="work-title">
+    <section class="work" data-reveal aria-labelledby="work-title">
       <div class="wrap">
         <div class="section-head">
           <p class="section-index mono">Ⅵ / 精选作品</p>
           <h2 id="work-title">从封面表面，继续走进去<span class="dot"></span></h2>
         </div>
         <div class="work-grid">
-          <article v-for="(work, index) in works" :key="work.title" class="work-card" :class="{ offset: index === 1 }">
+          <article
+            v-for="(work, index) in works"
+            :key="work.title"
+            class="work-card"
+            data-reveal
+            :style="{ '--reveal-delay': `${index * 120}ms` }"
+            :class="{ offset: index === 1 }"
+          >
             <img :src="work.image" :alt="work.title" loading="lazy" />
             <h3>{{ work.title }}</h3>
             <p>{{ work.text }}</p>
@@ -342,7 +402,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section id="listen" class="listen" aria-labelledby="listen-title">
+    <section id="listen" class="listen" data-reveal aria-labelledby="listen-title">
       <div class="wrap listen-layout">
         <div class="listen-copy">
           <p class="eyebrow mono">Ⅶ / 今夜试听</p>
@@ -369,7 +429,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="quote" aria-label="Rock Web 引言">
+    <section class="quote" data-reveal aria-label="Rock Web 引言">
       <div class="wrap">
         <blockquote>“让一张唱片不只停留在播放按钮之前。”<span class="dot"></span></blockquote>
         <div class="partners" aria-label="Rock Web 标记">
@@ -378,7 +438,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="cta" aria-labelledby="cta-title">
+    <section class="cta" data-reveal aria-labelledby="cta-title">
       <div class="wrap cta-inner">
         <div>
           <p class="mono">Ⅷ / 继续探索</p>
@@ -427,6 +487,32 @@ onMounted(() => {
 <style scoped>
 .home {
   background: var(--paper);
+}
+
+.home.has-reveal [data-reveal] {
+  opacity: 0;
+  transform: translateY(34px) rotate(0.35deg);
+  transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.home.has-reveal [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.home.has-reveal .hero-section {
+  transition-duration: 1s;
+}
+
+.home.has-reveal .hero-section .hero-art {
+  transform: translateY(22px) rotate(1deg) scale(0.985);
+  transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home.has-reveal .hero-section.is-visible .hero-art {
+  transform: none;
 }
 
 .hero-section {
